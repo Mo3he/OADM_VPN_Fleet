@@ -67,7 +67,8 @@
         <DataGridTemplateColumn Header="Update" Width="100" SortMemberPath="Update">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="vm:FleetRowView">
-              <ui:StatusChip Margin="10,0" HorizontalAlignment="Left" Text="{Binding Update}" IsAccent="True" IsVisible="{Binding UpdateAvailable}" />
+              <ui:StatusChip Margin="10,0" HorizontalAlignment="Left" Text="{Binding Update}" IsInfo="True" Icon="{DynamicResource Icon.download}"
+                             IsVisible="{Binding UpdateAvailable}" ToolTip.Tip="A newer version is on GitHub" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
