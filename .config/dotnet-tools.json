@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "oadm.tools": {
+      "version": "5.1.0",
+      "commands": [
+        "oadm"
+      ],
+      "rollForward": false
+    }
+  }
+}

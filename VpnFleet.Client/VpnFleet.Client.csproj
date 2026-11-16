@@ -1,0 +1,11 @@
+<Project Sdk="Oadm.Plugin.Sdk/5.1.0">
+  <!-- The client part: VpnFleet.Client.dll in the same plugin folder as the server part. -->
+  <PropertyGroup>
+    <OadmPluginId>mo3he.vpn-fleet</OadmPluginId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <ProjectReference Include="..\VpnFleet\VpnFleet.csproj" />
+  </ItemGroup>
+</Project>

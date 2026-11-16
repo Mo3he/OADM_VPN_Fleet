@@ -1,0 +1,8 @@
+bin/
+obj/
+.oadm/
+.vs/
+*.user
+TestResults/
+Properties/launchSettings.json
+*.oadmplugin

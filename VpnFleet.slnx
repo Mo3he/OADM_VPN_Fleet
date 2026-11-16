@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="VpnFleet/VpnFleet.csproj" />
+  <Project Path="VpnFleet.Client/VpnFleet.Client.csproj" />
+  <Project Path="VpnFleet.Tests/VpnFleet.Tests.csproj" />
+</Solution>

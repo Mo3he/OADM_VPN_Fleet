@@ -1,0 +1,10 @@
+<Project>
+  <!-- Every project of the plugin. The plugin parts use Oadm.Plugin.Sdk; after a build the plugin folder is
+       .oadm/plugins/<plugin id>/, which "dotnet oadm dev start" loads. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OadmDeployRoot>$(MSBuildThisFileDirectory).oadm/plugins/</OadmDeployRoot>
+  </PropertyGroup>
+</Project>
