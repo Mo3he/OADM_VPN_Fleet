@@ -2,26 +2,59 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="using:Oadm.Sdk.Client.Controls"
              xmlns:vm="using:VpnFleet.Client"
+             xmlns:m="using:VpnFleet"
              x:Class="VpnFleet.Client.VpnFleetView"
              x:DataType="vm:VpnFleetViewModel"
-             ui:PageHeader.Subtitle="The VPN of the chosen devices.">
-  <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*,Auto">
+             ui:PageHeader.Subtitle="The VPN apps of the chosen devices.">
+  <UserControl.Resources>
+    <!-- The cameras an action on many cameras changes: one checkbox each, with what happens to it. -->
+    <DataTemplate x:Key="Checklist" x:DataType="vm:CameraChecklist">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBlock Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Summary}" />
+          <Button Grid.Column="1" Classes="toolbar" Content="All" Command="{Binding CheckAllCommand}" />
+          <Button Grid.Column="2" Classes="toolbar" Content="None" Command="{Binding CheckNoneCommand}" />
+        </Grid>
+        <ListBox ItemsSource="{Binding Items}" MaxHeight="260">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CameraCheck">
+              <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsEnabled}">
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" />
+                  <TextBlock Classes="secondary small" Classes.warning="{Binding IsWarning}" TextWrapping="Wrap" Text="{Binding Note}" />
+                </StackPanel>
+              </CheckBox>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" ColumnDefinitions="*,Auto">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12">
       <ui:ToolbarButton IconKey="devices" Text="{Binding Devices.ButtonText}" Command="{Binding ChooseDevicesCommand}" IsEnabled="{Binding !IsReading}" />
       <ui:ToolbarButton IconKey="refresh" Text="Refresh" Command="{Binding RefreshCommand}" />
-      <ui:ToolbarButton IconKey="key" Text="Connect to a VPN" Command="{Binding ToggleConnectCommand}" IsVisible="{Binding MayConnect}" />
+      <ui:ToolbarButton IconKey="download" Text="Install or upgrade" Command="{Binding OpenInstallCommand}" IsVisible="{Binding MayInstall}" />
+      <ui:ToolbarButton IconKey="key" Text="Set up many cameras" Command="{Binding OpenConnectCommand}" IsVisible="{Binding MayConnect}" />
       <ui:ToolbarButton IconKey="route" Text="WireGuard peers" Command="{Binding ShowPeersCommand}" />
-      <TextBlock Classes="secondary" VerticalAlignment="Center" Text="{Binding Summary}" />
     </StackPanel>
 
-    <ui:ProgressRow Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Text="Reading devices" IsActive="{Binding IsReading}" IsVisible="{Binding IsReading}" />
+    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Spacing="2">
+      <TextBlock Classes="secondary" Text="{Binding Summary}" />
+      <TextBlock Classes="warning small" TextWrapping="Wrap" Text="{Binding ReleaseNote}"
+                 IsVisible="{Binding ReleaseNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
 
-    <DataGrid Grid.Row="2" Grid.Column="0" Margin="0,8,0,0" ItemsSource="{Binding Rows}" IsReadOnly="True" CanUserSortColumns="True">
+    <ui:ProgressRow Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Text="Reading devices" IsActive="{Binding IsReading}" IsVisible="{Binding IsReading}" />
+
+    <DataGrid Grid.Row="3" Grid.Column="0" Margin="0,8,0,0" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}"
+              IsReadOnly="True" CanUserSortColumns="True" SelectionMode="Single">
       <DataGrid.Columns>
-        <DataGridTextColumn Header="Address" Width="150" Binding="{Binding Address}" x:DataType="vm:FleetRowView" />
-        <DataGridTextColumn Header="Model" Width="130" Binding="{Binding Model}" x:DataType="vm:FleetRowView" />
+        <DataGridTextColumn Header="Address" Width="140" Binding="{Binding Address}" x:DataType="vm:FleetRowView" />
+        <DataGridTextColumn Header="Model" Width="120" Binding="{Binding Model}" x:DataType="vm:FleetRowView" />
         <DataGridTextColumn Header="VPN" Width="100" Binding="{Binding Vpn}" x:DataType="vm:FleetRowView" />
-        <DataGridTemplateColumn Header="Status" Width="140" SortMemberPath="StateText">
+        <DataGridTemplateColumn Header="Status" Width="130" SortMemberPath="StateText">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="vm:FleetRowView">
               <ui:StatusChip Margin="10,0" HorizontalAlignment="Left" Text="{Binding StateText}"
@@ -29,17 +62,124 @@
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="VPN address" Width="130" Binding="{Binding VpnAddress}" x:DataType="vm:FleetRowView" />
-        <DataGridTextColumn Header="App version" Width="110" Binding="{Binding AppVersion}" x:DataType="vm:FleetRowView" />
+        <DataGridTextColumn Header="VPN address" Width="120" Binding="{Binding VpnAddress}" x:DataType="vm:FleetRowView" />
+        <DataGridTextColumn Header="Version" Width="90" Binding="{Binding AppVersion}" x:DataType="vm:FleetRowView" />
+        <DataGridTemplateColumn Header="Update" Width="100" SortMemberPath="Update">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="vm:FleetRowView">
+              <ui:StatusChip Margin="10,0" HorizontalAlignment="Left" Text="{Binding Update}" IsAccent="True" IsVisible="{Binding UpdateAvailable}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
         <DataGridTextColumn Header="Details" Width="*" Binding="{Binding Detail}" x:DataType="vm:FleetRowView" />
       </DataGrid.Columns>
     </DataGrid>
 
-    <!-- Connect to a VPN -->
-    <Border Grid.Row="2" Grid.Column="1" Classes="card" Width="420" Margin="12,8,0,0" IsVisible="{Binding IsConnectOpen}">
+    <!-- One camera: version, upgrade and its settings -->
+    <Border Grid.Row="3" Grid.Column="1" Classes="card" Width="440" Margin="12,8,0,0" IsVisible="{Binding IsCameraOpen}">
+      <ScrollViewer DataContext="{Binding Camera}" x:DataType="vm:CameraSettingsViewModel">
+        <StackPanel Classes="form" Spacing="6">
+          <ui:CardHeader Title="{Binding Title}" Description="{Binding VersionText}">
+            <Button Classes="toolbar iconOnly" ToolTip.Tip="Close" Command="{Binding $parent[UserControl].((vm:VpnFleetViewModel)DataContext).ClosePanelCommand}">
+              <ui:OadmIcon Data="{DynamicResource Icon.close}" />
+            </Button>
+          </ui:CardHeader>
+
+          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasApp}">
+            <Button Classes="secondary" Content="{Binding UpgradeText}" Command="{Binding UpgradeCommand}" IsVisible="{Binding CanUpgrade}" />
+            <Button Classes="toolbar" Content="What's new" Command="{Binding OpenReleaseCommand}" />
+          </StackPanel>
+
+          <!-- No VPN app: install one -->
+          <StackPanel Spacing="6" IsVisible="{Binding HasNoApp}">
+            <TextBlock Classes="secondary" TextWrapping="Wrap" Text="This camera has no VPN app. Install one from GitHub." />
+            <ui:FormField Label="App" LabelAbove="True">
+              <ComboBox ItemsSource="{Binding InstallApps}" SelectedItem="{Binding SelectedInstallApp}" HorizontalAlignment="Stretch" />
+            </ui:FormField>
+            <Button Classes="primary" HorizontalAlignment="Right" Content="Install" Command="{Binding InstallCommand}" IsEnabled="{Binding MayInstall}" />
+          </StackPanel>
+
+          <ui:LoadingOverlay Text="Reading the settings" IsVisible="{Binding IsLoading}" />
+
+          <ItemsControl ItemsSource="{Binding Fields}" IsEnabled="{Binding MayChange}" IsVisible="{Binding HasApp}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SettingFieldViewModel">
+                <ui:FormField Label="{Binding Label}" Hint="{Binding Hint}" Error="{Binding Error}" LabelAbove="True">
+                  <Panel>
+                    <TextBox Text="{Binding Value}" PlaceholderText="{Binding Placeholder}" IsVisible="{Binding IsText}" />
+                    <ui:PasswordBox Text="{Binding Value}" PlaceholderText="{Binding Placeholder}" IsVisible="{Binding IsSecret}" />
+                    <CheckBox IsChecked="{Binding BoolValue}" Content="On" IsVisible="{Binding IsBool}" />
+                    <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}" HorizontalAlignment="Stretch" IsVisible="{Binding IsChoice}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="m:SettingOption">
+                          <TextBlock Text="{Binding Text}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </Panel>
+                </ui:FormField>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- WireGuard: the public key for the other side, and a new key pair -->
+          <ui:FormField Label="Public key" LabelAbove="True" Hint="Give this to the WireGuard server." IsVisible="{Binding IsWireGuard}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Classes="mono" IsReadOnly="True" Text="{Binding PublicKey}" PlaceholderText="No key yet" />
+              <Button Grid.Column="1" Margin="6,0,0,0" Classes="secondary" Content="New key pair" Command="{Binding NewKeyPairCommand}" IsEnabled="{Binding MayChange}" />
+            </Grid>
+          </ui:FormField>
+
+          <!-- OpenVPN: replace the profile -->
+          <ui:FormField Label="VPN profile" LabelAbove="True" Hint="Optional. Choose a file to replace the profile on the camera." IsVisible="{Binding IsOpenVpn}">
+            <ui:FileRow FileName="{Binding ProfileName}" Command="{Binding ChooseProfileCommand}" IsEnabled="{Binding MayChange}" />
+          </ui:FormField>
+
+          <ui:ProgressRow Text="Saving" IsActive="{Binding IsSaving}" IsVisible="{Binding IsSaving}" />
+          <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding InfoText}" IsVisible="{Binding InfoText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ErrorText}" IsVisible="{Binding ErrorText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <Button Classes="primary" HorizontalAlignment="Right" Content="Save" Command="{Binding SaveCommand}" IsVisible="{Binding HasApp}"
+                  ToolTip.Tip="{Binding SaveBlockedReason}" ToolTip.ShowOnDisabled="True" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Install or upgrade on many cameras -->
+    <Border Grid.Row="3" Grid.Column="1" Classes="card" Width="440" Margin="12,8,0,0" IsVisible="{Binding IsInstallOpen}">
+      <ScrollViewer DataContext="{Binding Install}" x:DataType="vm:InstallViewModel">
+        <StackPanel Classes="form" Spacing="6">
+          <ui:CardHeader Title="Install or upgrade" Description="Downloads the app from GitHub, the right package for each camera, and installs it. Settings are kept.">
+            <Button Classes="toolbar iconOnly" ToolTip.Tip="Close" Command="{Binding $parent[UserControl].((vm:VpnFleetViewModel)DataContext).ClosePanelCommand}">
+              <ui:OadmIcon Data="{DynamicResource Icon.close}" />
+            </Button>
+          </ui:CardHeader>
+          <ui:FormField Label="App" LabelAbove="True">
+            <ComboBox ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedApp}" HorizontalAlignment="Stretch" />
+          </ui:FormField>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBlock Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding ReleaseText}" />
+            <Button Grid.Column="1" Classes="toolbar" Content="What's new" Command="{Binding OpenReleaseCommand}" />
+            <Button Grid.Column="2" Classes="toolbar" Content="Check now" Command="{Binding CheckNowCommand}" />
+          </Grid>
+          <ui:ProgressRow Text="Checking GitHub" IsActive="{Binding IsChecking}" IsVisible="{Binding IsChecking}" />
+          <ContentControl Content="{Binding Cameras}" ContentTemplate="{StaticResource Checklist}" />
+          <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding InfoText}" IsVisible="{Binding InfoText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ErrorText}" IsVisible="{Binding ErrorText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <Button Classes="primary" HorizontalAlignment="Right" Content="{Binding InstallText}" Command="{Binding InstallCommand}"
+                  ToolTip.Tip="{Binding InstallBlockedReason}" ToolTip.ShowOnDisabled="True" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Set up many cameras -->
+    <Border Grid.Row="3" Grid.Column="1" Classes="card" Width="440" Margin="12,8,0,0" IsVisible="{Binding IsConnectOpen}">
       <ScrollViewer>
         <StackPanel Classes="form" Spacing="4">
-          <ui:CardHeader Title="Connect to a VPN" Description="Saves the settings in the VPN app of every chosen device and starts the app. Install the app first on the Applications page." />
+          <ui:CardHeader Title="Set up many cameras" Description="Saves the same VPN settings in the app of every ticked camera and starts it. WireGuard gives each camera its own key and address.">
+            <Button Classes="toolbar iconOnly" ToolTip.Tip="Close" Command="{Binding ClosePanelCommand}">
+              <ui:OadmIcon Data="{DynamicResource Icon.close}" />
+            </Button>
+          </ui:CardHeader>
 
           <StackPanel Classes="form" DataContext="{Binding Form}" x:DataType="vm:ConnectFormViewModel">
             <ui:FormField Label="VPN" LabelAbove="True">
@@ -83,7 +223,7 @@
               <RadioButton GroupName="wgServer" Content="A camera with WireGuard Server" IsChecked="{Binding UseHub}" />
               <RadioButton GroupName="wgServer" Content="Another WireGuard server" IsChecked="{Binding !UseHub}" />
             </StackPanel>
-            <ui:FormField Label="Hub camera" LabelAbove="True" Hint="Gets every chosen camera as a peer." Error="{Binding HubError}" IsVisible="{Binding IsWireGuardHub}">
+            <ui:FormField Label="Hub camera" LabelAbove="True" Hint="Gets every ticked camera as a peer." Error="{Binding HubError}" IsVisible="{Binding IsWireGuardHub}">
               <ui:FileRow FileName="{Binding HubName}" ButtonText="Choose" Command="{Binding ChooseHubCommand}" />
             </ui:FormField>
             <ui:FormField Label="Server address" LabelAbove="True" IsVisible="{Binding IsWireGuardOther}">
@@ -100,24 +240,31 @@
             </ui:FormField>
           </StackPanel>
 
+          <TextBlock Classes="formSection" Text="Cameras" Margin="0,8,0,0" />
+          <ContentControl Content="{Binding ConnectCameras}" ContentTemplate="{StaticResource Checklist}" />
+
           <ui:ProgressRow Text="Starting the tasks" IsActive="{Binding IsConnecting}" IsVisible="{Binding IsConnecting}" />
           <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding InfoText}"
                      IsVisible="{Binding InfoText, Converter={x:Static ObjectConverters.IsNotNull}}" />
-          <Button Classes="primary" HorizontalAlignment="Right" Content="Connect" Command="{Binding ConnectCommand}"
+          <Button Classes="primary" HorizontalAlignment="Right" Content="{Binding ConnectText}" Command="{Binding ConnectCommand}"
                   ToolTip.Tip="{Binding ConnectBlockedReason}" ToolTip.ShowOnDisabled="True" />
         </StackPanel>
       </ScrollViewer>
     </Border>
 
     <!-- WireGuard peers for another server -->
-    <Border Grid.Row="2" Grid.Column="1" Classes="card" Width="420" Margin="12,8,0,0" IsVisible="{Binding IsPeersOpen}">
+    <Border Grid.Row="3" Grid.Column="1" Classes="card" Width="440" Margin="12,8,0,0" IsVisible="{Binding IsPeersOpen}">
       <Grid RowDefinitions="Auto,*">
-        <ui:CardHeader Title="WireGuard peers" Description="Add these to the configuration of your WireGuard server." />
-        <TextBox Grid.Row="1" Margin="0,8,0,0" Text="{Binding PeersText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" Classes="mono" />
+        <ui:CardHeader Title="WireGuard peers" Description="Add these to the configuration of your WireGuard server.">
+          <Button Classes="toolbar iconOnly" ToolTip.Tip="Close" Command="{Binding ClosePanelCommand}">
+            <ui:OadmIcon Data="{DynamicResource Icon.close}" />
+          </Button>
+        </ui:CardHeader>
+        <TextBox Grid.Row="1" Margin="0,8,0,0" Classes="mono" Text="{Binding PeersText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
       </Grid>
     </Border>
 
-    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" Classes="error" TextWrapping="Wrap" Text="{Binding ErrorText}"
+    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0" Classes="error" TextWrapping="Wrap" Text="{Binding ErrorText}"
                IsVisible="{Binding ErrorText, Converter={x:Static ObjectConverters.IsNotNull}}" />
   </Grid>
 </UserControl>

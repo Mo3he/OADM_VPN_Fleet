@@ -104,6 +104,7 @@ public static class DeviceVpn
         {
             VpnKind.NetBird => app.LocalPath("api/status"),
             VpnKind.WireGuard => SystemLogPath + "?appname=" + Uri.EscapeDataString(app.AppName),
+            VpnKind.WireGuardServer => app.LocalPath("status"),
             _ => app.LocalPath("status.json"),
         };
         var (status, body) = await GetAsync(vapix, path, ct).ConfigureAwait(false);
@@ -113,6 +114,30 @@ public static class DeviceVpn
         }
 
         return VpnStatusParser.Parse(app.Kind, body);
+    }
+
+    /// <summary>The public key the WireGuard Server app reports; null when it has none or does not answer.</summary>
+    public static async Task<string?> ReadHubPublicKeyAsync(IVapixClient vapix, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(vapix);
+        var (status, body) = await GetAsync(vapix, VpnApps.WireGuardServer.LocalPath("status"), ct).ConfigureAwait(false);
+        if (status != HttpStatusCode.OK)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("publicKey", out var key)
+                && key.ValueKind == JsonValueKind.String && WireGuardKeys.IsKey(key.GetString())
+                ? key.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Reads the hub: the WireGuard Server app must be installed, running and have its key.</summary>
@@ -161,6 +186,62 @@ public static class DeviceVpn
 
         var enabled = string.Equals(Param("Enabled"), "yes", StringComparison.OrdinalIgnoreCase);
         return new HubInfo(publicKey!, pool, endpoint, Param("Peers"), enabled);
+    }
+
+    /// <summary>Upload errors of upload.cgi ("Error: n"), VAPIX Application API.</summary>
+    public static readonly IReadOnlyDictionary<int, string> UploadErrors = new Dictionary<int, string>
+    {
+        [1] = "The file is not an app package (.eap).",
+        [2] = "The device accepts only signed apps and this package's signature is not valid.",
+        [3] = "The package is too large or the device's storage is full.",
+        [5] = "The package does not fit this device. The device's system log says why.",
+        [10] = "The device could not install the package. The device's system log says why.",
+        [12] = "Another app is being uploaded to the device. Try again when it is done.",
+        [15] = "The device timed out. Check its apps and its system log.",
+        [27] = "The vendor of the package differs from the installed app. Remove the app first.",
+        [29] = "The package's manifest is not valid.",
+    };
+
+    public const string UploadPath = "/axis-cgi/applications/upload.cgi";
+
+    /// <summary>upload.cgi answers after the installation, which can take minutes.</summary>
+    public static readonly TimeSpan UploadTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Installs or upgrades an app with upload.cgi, multipart field "file" with quoted names (the unquoted form of
+    /// <see cref="MultipartFormDataContent"/> makes the device answer "Error: 3"). Upgrading keeps the app's settings.
+    /// </summary>
+    public static async Task InstallPackageAsync(IVapixClient vapix, string path, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(vapix);
+        await using var stream = File.OpenRead(path);
+        var file = new StreamContent(stream, 81920);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        file.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+        {
+            Name = "\"file\"",
+            FileName = "\"" + Path.GetFileName(path) + "\"",
+        };
+        var boundary = "vpnfleet-" + Guid.NewGuid().ToString("N");
+        using var content = new MultipartContent("form-data", boundary) { file };
+        content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("multipart/form-data; boundary=" + boundary);
+        using var request = new HttpRequestMessage(HttpMethod.Post, UploadPath) { Content = content };
+        request.Headers.ExpectContinue = true;
+        request.Options.Set(VapixRequestOptions.Timeout, UploadTimeout);
+        using var response = await vapix.SendAsync(request, ct).ConfigureAwait(false);
+        var body = (await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false)).Trim();
+        if (response.IsSuccessStatusCode && body.StartsWith("OK", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (body.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(new string([.. body[6..].Trim().TakeWhile(char.IsAsciiDigit)]), out var code))
+        {
+            throw new VpnDeviceException((UploadErrors.TryGetValue(code, out var text) ? text : "The device refused the package.") + $" (error {code})");
+        }
+
+        throw new VpnDeviceException("The device did not install the package: " + Short(body));
     }
 
     private static async Task<(HttpStatusCode Status, string Body)> GetAsync(IVapixClient vapix, string path, CancellationToken ct)

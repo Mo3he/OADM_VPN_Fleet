@@ -14,35 +14,52 @@ VPN at once.
 
 ## The page
 
-**VPN Fleet** in the navigation rail (group Security):
+**VPN Fleet** in the navigation rail (group Security, a shield with "VPN"):
 
 - **Choose devices** / **Refresh**: one row per VPN app per device with its status (Connected, Connecting, Not
-  connected, Not set up, App stopped, No VPN app), the tunnel address and the app version. Devices are read 16 at a time.
-- **Connect to a VPN**: choose the VPN and enter its key; every chosen device gets a task that saves the settings in its
-  VPN app, starts the app and waits up to 90 s for the tunnel (Done with a warning when it does not come up). The app
-  must be installed (OADM's Applications page installs it on many devices at once).
-- **WireGuard peers**: the `[Peer]` sections of the cameras connected to another WireGuard server, for its
-  configuration.
+  connected, Not set up, App stopped, No VPN app), the tunnel address, the installed version and, when GitHub has a
+  newer release, the update. Devices are read 16 at a time.
+- **Click a row**: the panel of that camera only. All settings of its app with their names (secrets show whether they
+  are set, never their value; left empty they keep it), **Save** for this camera, **Upgrade to x.y.z** and **What's
+  new**. WireGuard shows the camera's public key and makes a new key pair; OpenVPN takes a new profile. A camera
+  without a VPN app offers to install one.
+- **Install or upgrade**: choose an app; every chosen camera is listed with a checkbox and what happens to it
+  ("Upgrade 1.104.6 to 1.104.7", "Install Tailscale 1.104.7", "1.104.7, the newest"). Outdated cameras are ticked.
+- **Set up many cameras**: the same VPN settings for every ticked camera; the list says which cameras have the app
+  (ticked) and which do not (not ticked, the task would refuse them).
+- **WireGuard peers**: the `[Peer]` sections of the cameras connected to another WireGuard server.
+
+### Install and upgrade
+
+The newest release of each app comes from `github.com/Mo3he/<repository>/releases/latest` (asked at most every 30
+minutes). Each camera gets the package for its architecture and AXIS OS: the signed build (`signed_*_<arch>.eap`), on
+armv7hf with AXIS OS before 10.12 the ACAP 3 build (`*_armv7hf_acap3.eap`); `_root` builds are never chosen. The OADM
+server downloads each package once into its plugin folder, only from GitHub's hosts, checks the SHA-256 GitHub
+publishes, then installs it with `upload.cgi` (4 cameras at a time), starts the app and checks the installed version.
+Upgrades keep the app's settings; a camera that has the version already is not changed. The OADM server needs HTTPS
+access to `api.github.com`, `github.com` and `*.githubusercontent.com`.
 
 ### WireGuard
 
 - **A camera with WireGuard Server** ([Axis_Cam_WireGuard_Server](https://github.com/Mo3he/Axis_Cam_WireGuard_Server))
   as hub: the plugin reads the hub's public key, tunnel network, port and public address, gives each camera the next
   free tunnel address, makes its key pair, adds the cameras to the hub's `Peers` (other peers stay) and sets up the
-  cameras. Connecting a camera again keeps its address and replaces its key.
+  cameras. Connecting a camera again keeps its address and replaces its key; a new key saved in a camera's panel also
+  goes to its hub.
 - **Another WireGuard server**: enter its address, public key and tunnel address (e.g. `10.66.0.1/24`); the cameras
   get the next addresses. Copy the peers from **WireGuard peers** into the server's configuration.
 
-Private keys are made on the OADM server and only go to their camera, inside the task (task payloads are never
-stored). The plugin keeps each camera's public key and address, never a private key, auth key, setup key or password.
+Private keys are made on the OADM server (or in the camera panel) and only go to their camera. The plugin keeps each
+camera's public key and address, never a private key, auth key, setup key or password.
 
 ## Permissions
 
-- **Show** (automatic): see the page and read devices.
-- **Connect devices to a VPN** (`mo3he.vpn-fleet:connect`): change VPN settings. Off for Operators by default; give it
-  per role on the Permissions page. Every connect is in the audit log, without secrets.
+- **Show** (automatic): see the page, read devices and settings (without secrets).
+- **Change VPN settings** (`mo3he.vpn-fleet:connect`): save a camera's settings and set up many cameras.
+- **Install and upgrade VPN apps** (`mo3he.vpn-fleet:install`).
 
-Users limited to a device group only see and change their devices.
+Both are off for Operators by default; give them per role on the Permissions page. Every change is in the audit log,
+without secrets. Users limited to a device group only see and change their devices.
 
 ## Install
 
@@ -70,8 +87,8 @@ dotnet oadm pack             # the .oadmplugin file
 
 | Folder | Content |
 |---|---|
-| `VpnFleet/` | Server part: the page methods (`VpnFleetPlugin`), the task (`ConnectTaskPlugin`), device requests (`DeviceVpn`), status parsers, WireGuard keys (X25519, RFC 7748) and addressing |
-| `VpnFleet.Client/` | The page (Avalonia, MVVM) |
+| `VpnFleet/` | Server part: the page methods (`VpnFleetPlugin`), the tasks (`ConnectTaskPlugin`, `InstallTaskPlugin`), device requests (`DeviceVpn`), GitHub releases (`ReleaseCatalog`, `GitHubHttp`), settings (`AppSettings`), status parsers, WireGuard keys (X25519, RFC 7748) and addressing |
+| `VpnFleet.Client/` | The page (Avalonia, MVVM), the camera panel, the checklists and the rail icon (`VpnIcon`) |
 | `VpnFleet.Tests/` | Unit tests with OADM's fakes, including the device-group canary |
 
 Rules for changes, also for AI assistants: [AGENTS.md](AGENTS.md).

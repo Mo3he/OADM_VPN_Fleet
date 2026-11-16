@@ -11,6 +11,11 @@ public sealed record FleetRowView(FleetRow Row)
 
     public string AppVersion => Row.AppVersion ?? "";
 
+    /// <summary>"1.104.7" when it is newer than the installed version, else empty.</summary>
+    public string Update => Row.UpdateAvailable ? Row.LatestVersion! : "";
+
+    public bool UpdateAvailable => Row.UpdateAvailable;
+
     public string VpnAddress => Row.VpnAddress ?? "";
 
     public string Detail => Row.Error ?? Row.Detail ?? "";
@@ -35,7 +40,7 @@ public sealed record FleetRowView(FleetRow Row)
     };
 }
 
-/// <summary>A choice of the VPN list.</summary>
+/// <summary>A choice of an app list.</summary>
 public sealed record VpnChoice(VpnKind Kind, string Name)
 {
     public override string ToString() => Name;

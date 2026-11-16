@@ -29,7 +29,7 @@ public sealed partial class ConnectFormViewModel : ValidatingViewModel
         Validation.Validate();
     }
 
-    public IReadOnlyList<VpnChoice> Vpns { get; } = [.. VpnApps.All.Select(a => new VpnChoice(a.Kind, a.DisplayName))];
+    public IReadOnlyList<VpnChoice> Vpns { get; } = [.. VpnApps.All.Where(a => a.CanConnect).Select(a => new VpnChoice(a.Kind, a.DisplayName))];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsTailscale), nameof(IsNetBird), nameof(IsZeroTier), nameof(IsWireGuard), nameof(IsOpenVpn), nameof(IsWireGuardHub), nameof(IsWireGuardOther))]

@@ -164,9 +164,8 @@ public sealed class ConnectTests
         Assert.Equal("10.66.0.3/24", cameraRun.Cameras![a.Id].ClientIp);
         Assert.Equal(hubRun.HubPeers![0].PublicKey, WireGuardKeys.PublicKeyOf(cameraRun.Cameras[a.Id].PrivateKey));
 
-        var stored = server.PluginSettings.Values[VpnFleetPlugin.WireGuardSettingKey]!;
-        Assert.DoesNotContain(cameraRun.Cameras[a.Id].PrivateKey, stored, StringComparison.Ordinal);
-        Assert.Contains(hubRun.HubPeers[0].PublicKey, stored, StringComparison.Ordinal);
+        var stored = JsonSerializer.Deserialize<List<WireGuardRecord>>(server.PluginSettings.Values[VpnFleetPlugin.WireGuardSettingKey]!, Fleet.Json)!;
+        Assert.Equal(hubRun.HubPeers.Select(p => p.PublicKey), stored.Select(r => r.PublicKey));
 
         // The camera's task saves its own key and the hub's values.
         var cameraA = (AppCamera)server.Cameras[a.Id];
@@ -232,7 +231,10 @@ public sealed class ConnectTests
 
         Assert.Equal(PermissionKeys.Show, plugin.RequiredPermission(Fleet.Refresh));
         Assert.Equal(Fleet.ConnectPermission, plugin.RequiredPermission(Fleet.Connect));
-        Assert.False(Assert.Single(plugin.Permissions).OperatorDefault);
+        Assert.Equal(Fleet.InstallPermission, plugin.RequiredPermission(Fleet.Install));
+        Assert.Equal(Fleet.ConnectPermission, plugin.RequiredPermission(Fleet.SaveSettings));
+        Assert.Equal(PermissionKeys.Show, plugin.RequiredPermission(Fleet.GetSettings));
+        Assert.All(plugin.Permissions, p => Assert.False(p.OperatorDefault));
     }
 
     [Fact]
@@ -277,6 +279,10 @@ public sealed class ConnectTests
             .Method(Fleet.Connect, """{"kind":"WireGuard","hubDeviceId":"{device}","deviceIds":["{inside}"]}""")
             .WithoutDevices(Fleet.GetState, "the table of the user's devices")
             .WithoutDevices(Fleet.GetPeers, "the peers of the user's devices")
+            .WithoutDevices(Fleet.GetReleases, "the newest releases on GitHub", """{"checkNow":false}""")
+            .Method(Fleet.GetSettings, """{"deviceId":"{device}","kind":"Tailscale"}""")
+            .Method(Fleet.SaveSettings, """{"deviceId":"{device}","kind":"Tailscale","values":{"AcceptDNS":"true"}}""")
+            .Method(Fleet.Install, """{"kind":"Tailscale","deviceIds":["{inside}","{device}"],"upgrade":false}""")
             .RunAsync();
     }
 
@@ -298,7 +304,7 @@ public sealed class ConnectTests
 
     private static async Task<FakeTaskContext> RunTaskAsync(AppCamera camera, ConnectPayload payload, VpnFleetPlugin? plugin = null, IDeviceInfo? device = null, TimeSpan? wait = null)
     {
-        plugin ??= new VpnFleetPlugin(new FakeTimeProvider());
+        plugin ??= new VpnFleetPlugin(new FakeTimeProvider(), new FakeGitHub());
         plugin.ConnectTask.ConnectWait = wait ?? TimeSpan.FromSeconds(90);
         var ctx = new FakeTaskContext(camera) { Owner = plugin };
         await StepRun.RunAsync(ctx.Steps, () => plugin.ConnectTask.ExecuteAsync(ctx, device ?? new FakeDevice(), JsonSerializer.Serialize(payload, Fleet.Json), CancellationToken.None));
@@ -308,7 +314,7 @@ public sealed class ConnectTests
     private static async Task<(VpnFleetPlugin Plugin, FakeCoreContext Server)> StartAsync()
     {
         var server = new FakeCoreContext();
-        var plugin = new VpnFleetPlugin(new FakeTimeProvider());
+        var plugin = new VpnFleetPlugin(new FakeTimeProvider(), new FakeGitHub());
         await plugin.StartAsync(server, CancellationToken.None);
         return (plugin, server);
     }

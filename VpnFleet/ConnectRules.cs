@@ -42,7 +42,7 @@ public static partial class ConnectRules
                 Add(nameof(ConnectRequest.NetworkId), NetworkIdPattern().IsMatch(request.NetworkId?.Trim() ?? "") ? null : "Enter the 16-character network ID.");
                 break;
             case VpnKind.OpenVpn:
-                Add(nameof(ConnectRequest.Profile), Profile(request.Profile));
+                Add(nameof(ConnectRequest.Profile), ProfileProblem(request.Profile));
                 Add(nameof(ConnectRequest.UserName), OneLine(request.UserName)
                     ?? (string.IsNullOrEmpty(request.UserName) && !string.IsNullOrEmpty(request.Password) ? "Enter the user name of the password." : null));
                 Add(nameof(ConnectRequest.Password), OneLine(request.Password));
@@ -94,7 +94,7 @@ public static partial class ConnectRules
             ? "Enter one line."
             : null;
 
-    private static string? Profile(string? value)
+    public static string? ProfileProblem(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

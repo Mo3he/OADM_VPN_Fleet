@@ -25,6 +25,17 @@ public sealed partial class VpnFleetView : UserControl
             ? await DevicePickerWindow.ShowOneAsync(owner, vm.Devices.Candidates(), selected, heading: "Choose the hub camera")
             : null;
         vm.Form.PickProfile = PickProfileAsync;
+        vm.PickProfile = PickProfileAsync;
+        vm.OpenUrl = OpenUrl;
+    }
+
+    /// <summary>Opens a release page of the apps in the browser; nothing but GitHub.</summary>
+    private void OpenUrl(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && GitHubHttp.IsGitHub(uri) && TopLevel.GetTopLevel(this) is { } top)
+        {
+            _ = top.Launcher.LaunchUriAsync(uri);
+        }
     }
 
     private async Task<(string Name, string Text)?> PickProfileAsync()

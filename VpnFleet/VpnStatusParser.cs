@@ -21,8 +21,29 @@ public static partial class VpnStatusParser
         VpnKind.ZeroTier => ZeroTier(text),
         VpnKind.WireGuard => WireGuard(text),
         VpnKind.OpenVpn => OpenVpn(text),
+        VpnKind.WireGuardServer => WireGuardServer(text),
         _ => NoStatus,
     };
+
+    /// <summary>The WireGuard Server app's <c>/status</c>: running, turned off or an error, and its peers.</summary>
+    public static VpnStatus WireGuardServer(string? json)
+    {
+        if (Parse(json) is not { } root)
+        {
+            return NoStatus;
+        }
+
+        var address = WithoutPrefix(String(root, "address"));
+        var peers = root.TryGetProperty("peers", out var p) && p.ValueKind == JsonValueKind.Array ? p.EnumerateArray().ToList() : [];
+        var connected = peers.Count(e => e.ValueKind == JsonValueKind.Object && Bool(e, "connected"));
+        return String(root, "state") switch
+        {
+            "running" => new VpnStatus(VpnState.Connected, address, $"{connected} of {peers.Count} peers connected"),
+            "disabled" => new VpnStatus(VpnState.NotConnected, address, "The server is turned off."),
+            "error" => new VpnStatus(VpnState.NotConnected, address, String(root, "error") ?? "The server reported an error."),
+            _ => NoStatus,
+        };
+    }
 
     /// <summary><c>tailscale status --json</c>, as the app writes it to status.json.</summary>
     public static VpnStatus Tailscale(string? json)

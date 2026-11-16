@@ -2,9 +2,9 @@
   <!-- The server part: VpnFleet.Server.dll and its plugin.json, written from these properties. -->
   <PropertyGroup>
     <OadmPluginId>mo3he.vpn-fleet</OadmPluginId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <OadmDisplayName>VPN Fleet</OadmDisplayName>
-    <OadmDescription>See and set up the VPN apps of your devices: Tailscale, NetBird, ZeroTier, WireGuard and OpenVPN.</OadmDescription>
+    <OadmDescription>See, set up, install and upgrade the VPN apps of your devices: Tailscale, NetBird, ZeroTier, WireGuard and OpenVPN.</OadmDescription>
   </PropertyGroup>
 
   <ItemGroup>
