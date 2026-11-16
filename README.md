@@ -92,3 +92,7 @@ dotnet oadm pack             # the .oadmplugin file
 | `VpnFleet.Tests/` | Unit tests with OADM's fakes, including the device-group canary |
 
 Rules for changes, also for AI assistants: [AGENTS.md](AGENTS.md).
+
+## License
+
+Apache-2.0, see [LICENSE](LICENSE). Not affiliated with or endorsed by Axis Communications AB or the OADM project.
